@@ -139,6 +139,7 @@ async function sendShelfmarkOnly(
   const shelfmarkResult = await submitBookRequestToShelfmark({
     title: payload.title,
     author: payload.author,
+    selectedRelease: payload.selectedRelease,
     notes: payload.notes,
     requesterIp: payload.requesterIp,
     sourceUrl: payload.sourceUrl,

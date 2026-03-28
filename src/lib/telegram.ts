@@ -1,3 +1,5 @@
+import type { RequestReleaseSelection } from '~/lib/requests/types'
+
 interface TelegramConfig {
   botToken: string
   chatId: string
@@ -7,6 +9,7 @@ interface TelegramConfig {
 export interface BookRequestMessage {
   title: string
   author?: string
+  selectedRelease?: RequestReleaseSelection
   notes?: string
   requestedAt: string
   requesterIp?: string
@@ -81,6 +84,12 @@ function createTelegramText(payload: BookRequestMessage) {
     'Book request from Habitat Calibre',
     `Title: ${payload.title}`,
     payload.author ? `Author: ${payload.author}` : undefined,
+    payload.selectedRelease
+      ? `Selected release: ${payload.selectedRelease.source}:${payload.selectedRelease.sourceId}`
+      : undefined,
+    payload.selectedRelease?.format
+      ? `Release format: ${payload.selectedRelease.format}`
+      : undefined,
     payload.notes ? `Notes: ${payload.notes}` : undefined,
     payload.sourceUrl ? `Page: ${payload.sourceUrl}` : undefined,
     payload.requesterIp ? `IP: ${payload.requesterIp}` : undefined,

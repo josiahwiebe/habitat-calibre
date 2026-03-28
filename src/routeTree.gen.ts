@@ -20,6 +20,7 @@ import { Route as ApiRescanRouteImport } from './routes/api.rescan'
 import { Route as ApiRequestBookRouteImport } from './routes/api.request-book'
 import { Route as ApiHealthRouteImport } from './routes/api.health'
 import { Route as DownloadBookIdFormatRouteImport } from './routes/download.$bookId.$format'
+import { Route as ApiRequestBookReleasesRouteImport } from './routes/api.request-book.releases'
 import { Route as ApiAuthPlexRouteImport } from './routes/api.auth.plex'
 import { Route as ApiAuthMeRouteImport } from './routes/api.auth.me'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api.auth.logout'
@@ -79,6 +80,11 @@ const DownloadBookIdFormatRoute = DownloadBookIdFormatRouteImport.update({
   path: '/download/$bookId/$format',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRequestBookReleasesRoute = ApiRequestBookReleasesRouteImport.update({
+  id: '/releases',
+  path: '/releases',
+  getParentRoute: () => ApiRequestBookRoute,
+} as any)
 const ApiAuthPlexRoute = ApiAuthPlexRouteImport.update({
   id: '/api/auth/plex',
   path: '/api/auth/plex',
@@ -99,7 +105,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/api/health': typeof ApiHealthRoute
-  '/api/request-book': typeof ApiRequestBookRoute
+  '/api/request-book': typeof ApiRequestBookRouteWithChildren
   '/api/rescan': typeof ApiRescanRoute
   '/api/search': typeof ApiSearchRoute
   '/authors/$authorSlug': typeof AuthorsAuthorSlugRoute
@@ -109,13 +115,14 @@ export interface FileRoutesByFullPath {
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
   '/api/auth/plex': typeof ApiAuthPlexRoute
+  '/api/request-book/releases': typeof ApiRequestBookReleasesRoute
   '/download/$bookId/$format': typeof DownloadBookIdFormatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/api/health': typeof ApiHealthRoute
-  '/api/request-book': typeof ApiRequestBookRoute
+  '/api/request-book': typeof ApiRequestBookRouteWithChildren
   '/api/rescan': typeof ApiRescanRoute
   '/api/search': typeof ApiSearchRoute
   '/authors/$authorSlug': typeof AuthorsAuthorSlugRoute
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
   '/api/auth/plex': typeof ApiAuthPlexRoute
+  '/api/request-book/releases': typeof ApiRequestBookReleasesRoute
   '/download/$bookId/$format': typeof DownloadBookIdFormatRoute
 }
 export interface FileRoutesById {
@@ -132,7 +140,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/api/health': typeof ApiHealthRoute
-  '/api/request-book': typeof ApiRequestBookRoute
+  '/api/request-book': typeof ApiRequestBookRouteWithChildren
   '/api/rescan': typeof ApiRescanRoute
   '/api/search': typeof ApiSearchRoute
   '/authors/$authorSlug': typeof AuthorsAuthorSlugRoute
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
   '/api/auth/plex': typeof ApiAuthPlexRoute
+  '/api/request-book/releases': typeof ApiRequestBookReleasesRoute
   '/download/$bookId/$format': typeof DownloadBookIdFormatRoute
 }
 export interface FileRouteTypes {
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/api/auth/logout'
     | '/api/auth/me'
     | '/api/auth/plex'
+    | '/api/request-book/releases'
     | '/download/$bookId/$format'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/api/auth/logout'
     | '/api/auth/me'
     | '/api/auth/plex'
+    | '/api/request-book/releases'
     | '/download/$bookId/$format'
   id:
     | '__root__'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/api/auth/logout'
     | '/api/auth/me'
     | '/api/auth/plex'
+    | '/api/request-book/releases'
     | '/download/$bookId/$format'
   fileRoutesById: FileRoutesById
 }
@@ -199,7 +211,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   ApiHealthRoute: typeof ApiHealthRoute
-  ApiRequestBookRoute: typeof ApiRequestBookRoute
+  ApiRequestBookRoute: typeof ApiRequestBookRouteWithChildren
   ApiRescanRoute: typeof ApiRescanRoute
   ApiSearchRoute: typeof ApiSearchRoute
   AuthorsAuthorSlugRoute: typeof AuthorsAuthorSlugRoute
@@ -291,6 +303,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DownloadBookIdFormatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/request-book/releases': {
+      id: '/api/request-book/releases'
+      path: '/releases'
+      fullPath: '/api/request-book/releases'
+      preLoaderRoute: typeof ApiRequestBookReleasesRouteImport
+      parentRoute: typeof ApiRequestBookRoute
+    }
     '/api/auth/plex': {
       id: '/api/auth/plex'
       path: '/api/auth/plex'
@@ -315,11 +334,23 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ApiRequestBookRouteChildren {
+  ApiRequestBookReleasesRoute: typeof ApiRequestBookReleasesRoute
+}
+
+const ApiRequestBookRouteChildren: ApiRequestBookRouteChildren = {
+  ApiRequestBookReleasesRoute: ApiRequestBookReleasesRoute,
+}
+
+const ApiRequestBookRouteWithChildren = ApiRequestBookRoute._addFileChildren(
+  ApiRequestBookRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   ApiHealthRoute: ApiHealthRoute,
-  ApiRequestBookRoute: ApiRequestBookRoute,
+  ApiRequestBookRoute: ApiRequestBookRouteWithChildren,
   ApiRescanRoute: ApiRescanRoute,
   ApiSearchRoute: ApiSearchRoute,
   AuthorsAuthorSlugRoute: AuthorsAuthorSlugRoute,

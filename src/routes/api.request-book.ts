@@ -11,6 +11,20 @@ const requestQuotaByIp = new Map<string, { count: number; resetAt: number }>()
 const requestBookSchema = z.object({
   title: z.string().trim().min(2).max(180),
   author: z.string().trim().max(140).optional(),
+  selectedRelease: z
+    .object({
+      source: z.string().trim().min(1).max(80),
+      sourceId: z.string().trim().min(1).max(260),
+      title: z.string().trim().max(260).optional(),
+      author: z.string().trim().max(180).optional(),
+      format: z.string().trim().max(40).optional(),
+      size: z.string().trim().max(80).optional(),
+      indexer: z.string().trim().max(120).optional(),
+      protocol: z.string().trim().max(40).optional(),
+      seeders: z.number().int().min(0).max(100000).optional(),
+      downloadUrl: z.string().trim().max(4000).optional(),
+    })
+    .optional(),
   notes: z.string().trim().max(1500).optional(),
   honeypot: z.string().max(0).optional(),
 })
@@ -50,6 +64,20 @@ export const Route = createFileRoute('/api/request-book')({
           const delivery = await deliverBookRequest({
             title: payload.data.title,
             author: normalizeOptional(payload.data.author),
+            selectedRelease: payload.data.selectedRelease
+              ? {
+                  ...payload.data.selectedRelease,
+                  title: normalizeOptional(payload.data.selectedRelease.title),
+                  author: normalizeOptional(payload.data.selectedRelease.author),
+                  format: normalizeOptional(payload.data.selectedRelease.format),
+                  size: normalizeOptional(payload.data.selectedRelease.size),
+                  indexer: normalizeOptional(payload.data.selectedRelease.indexer),
+                  protocol: normalizeOptional(payload.data.selectedRelease.protocol),
+                  downloadUrl: normalizeOptional(
+                    payload.data.selectedRelease.downloadUrl,
+                  ),
+                }
+              : undefined,
             notes: normalizeOptional(payload.data.notes),
             requesterIp,
             requestedAt: new Date().toISOString(),

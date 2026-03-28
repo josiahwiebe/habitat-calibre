@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { normalizeEnvString } from './env'
+import type { RequestReleaseSelection } from './types'
 
 const DEFAULT_TIMEOUT_MS = 12000
 const MAX_NOTE_LENGTH = 1000
@@ -28,12 +29,47 @@ interface ShelfmarkErrorResponse {
   required_mode?: string
 }
 
+interface ShelfmarkReleasesResponse {
+  releases?: Array<Record<string, unknown>>
+  sources_searched?: Array<string>
+}
+
+interface ShelfmarkSession {
+  cookie: string
+}
+
+type ShelfmarkFailure = {
+  ok: false
+  status: 'provider_error' | 'unconfigured'
+  error: string
+}
+
+export interface ShelfmarkReleaseSearchInput {
+  title: string
+  author?: string
+  source?: string
+  manualQuery?: string
+}
+
+export interface ShelfmarkReleaseCandidate extends RequestReleaseSelection {
+  sourceLabel: string
+}
+
+export type ShelfmarkReleaseSearchResult =
+  | {
+      ok: true
+      releases: Array<ShelfmarkReleaseCandidate>
+      sourcesSearched: Array<string>
+    }
+  | ShelfmarkFailure
+
 /**
  * Input payload for creating a Shelfmark request.
  */
 export interface ShelfmarkRequestInput {
   title: string
   author?: string
+  selectedRelease?: RequestReleaseSelection
   notes?: string
   requesterIp?: string
   sourceUrl?: string
@@ -48,11 +84,7 @@ export type ShelfmarkRequestResult =
       status: 'queued'
       message: string
     }
-  | {
-      ok: false
-      status: 'provider_error' | 'unconfigured'
-      error: string
-    }
+  | ShelfmarkFailure
 
 /**
  * Returns true when Shelfmark request credentials are available.
@@ -79,7 +111,8 @@ export async function submitBookRequestToShelfmark(
   }
 
   const title = input.title.trim()
-  const author = input.author?.trim() || 'Unknown Author'
+  const author =
+    input.author?.trim() || input.selectedRelease?.author?.trim() || 'Unknown Author'
 
   if (title.length < 2) {
     return {
@@ -92,104 +125,26 @@ export async function submitBookRequestToShelfmark(
   let sessionCookie: string | undefined
 
   try {
-    const authCheck = await callShelfmarkJson<ShelfmarkAuthCheckResponse>({
-      config,
-      method: 'GET',
-      path: '/api/auth/check',
+    const session = await openShelfmarkSession(config)
+
+    if (!session.ok) {
+      return session
+    }
+
+    sessionCookie = session.session.cookie
+
+    const requestBody = buildShelfmarkCreateRequestBody({
+      input,
+      title,
+      author,
     })
-
-    if (!authCheck.response.ok) {
-      return {
-        ok: false,
-        status: 'provider_error',
-        error: `Shelfmark auth check failed (${authCheck.response.status}).`,
-      }
-    }
-
-    const authMode = normalizeShelfmarkAuthMode(authCheck.body?.auth_mode)
-
-    if (authMode === 'none') {
-      return {
-        ok: false,
-        status: 'unconfigured',
-        error:
-          'Shelfmark request API is disabled in no-auth mode. Enable local/OIDC/CWA auth and request workflow in Shelfmark.',
-      }
-    }
-
-    if (authMode === 'proxy') {
-      return {
-        ok: false,
-        status: 'unconfigured',
-        error:
-          'Shelfmark proxy-auth mode is not supported for backend request automation. Use a local service account instead.',
-      }
-    }
-
-    const login = await callShelfmarkJson<ShelfmarkLoginResponse>({
-      config,
-      method: 'POST',
-      path: '/api/auth/login',
-      body: {
-        username: config.username,
-        password: config.password,
-        remember_me: false,
-      },
-    })
-
-    sessionCookie = extractSessionCookie(login.response)
-
-    if (!login.response.ok || login.body?.success !== true || !sessionCookie) {
-      const loginError = normalizeErrorMessage(login.body?.error)
-
-      return {
-        ok: false,
-        status: 'provider_error',
-        error:
-          loginError ||
-          'Shelfmark login failed. Check SHELFMARK_USERNAME/SHELFMARK_PASSWORD and service availability.',
-      }
-      }
-
-    const postLoginAuthCheck = await callShelfmarkJson<ShelfmarkAuthCheckResponse>({
-      config,
-      method: 'GET',
-      path: '/api/auth/check',
-      cookie: sessionCookie,
-    })
-
-    if (
-      !postLoginAuthCheck.response.ok ||
-      postLoginAuthCheck.body?.authenticated !== true
-    ) {
-      return {
-        ok: false,
-        status: 'provider_error',
-        error:
-          'Shelfmark login succeeded but session cookie was not accepted. Check reverse proxy, URL base path, and cookie forwarding.',
-      }
-    }
 
     const createRequestResponse = await callShelfmarkJson<ShelfmarkErrorResponse>({
       config,
       method: 'POST',
       path: '/api/requests',
       cookie: sessionCookie,
-      body: {
-        context: {
-          request_level: 'book',
-          content_type: 'ebook',
-        },
-        content_type: 'ebook',
-        book_data: {
-          title,
-          author,
-          provider: 'manual',
-          provider_id: buildManualProviderId(title, author),
-          content_type: 'ebook',
-        },
-        note: buildShelfmarkNote(input),
-      },
+      body: requestBody,
     })
 
     if (createRequestResponse.response.ok) {
@@ -241,6 +196,15 @@ export async function submitBookRequestToShelfmark(
       }
     }
 
+    if (errorCode === 'policy_requires_request') {
+      return {
+        ok: false,
+        status: 'provider_error',
+        error:
+          'Shelfmark policy requires book-level requests. To submit a selected release, set ebook mode to Request Release.',
+      }
+    }
+
     return {
       ok: false,
       status: 'provider_error',
@@ -266,6 +230,268 @@ export async function submitBookRequestToShelfmark(
         cookie: sessionCookie,
       }).catch(() => undefined)
     }
+  }
+}
+
+/**
+ * Searches Shelfmark release sources and returns selectable release candidates.
+ */
+export async function searchShelfmarkReleases(
+  input: ShelfmarkReleaseSearchInput,
+): Promise<ShelfmarkReleaseSearchResult> {
+  const config = getShelfmarkConfig()
+
+  if (!config) {
+    return {
+      ok: false,
+      status: 'unconfigured',
+      error:
+        'Shelfmark is not configured. Set SHELFMARK_BASE_URL, SHELFMARK_USERNAME, and SHELFMARK_PASSWORD.',
+    }
+  }
+
+  const title = input.title.trim()
+  const author = input.author?.trim() || undefined
+  const source = input.source?.trim() || undefined
+  const manualQuery = input.manualQuery?.trim() || undefined
+
+  if (title.length < 2) {
+    return {
+      ok: false,
+      status: 'provider_error',
+      error: 'Book title is too short to search Shelfmark releases.',
+    }
+  }
+
+  let sessionCookie: string | undefined
+
+  try {
+    const session = await openShelfmarkSession(config)
+
+    if (!session.ok) {
+      return session
+    }
+
+    sessionCookie = session.session.cookie
+
+    const params = new URLSearchParams({
+      provider: 'manual',
+      book_id: buildManualProviderId(title, author ?? 'Unknown Author'),
+      title,
+      content_type: 'ebook',
+    })
+
+    if (author) {
+      params.set('author', author)
+    }
+
+    if (source) {
+      params.set('source', source)
+    }
+
+    if (manualQuery) {
+      params.set('manual_query', manualQuery)
+    }
+
+    const releasesResponse = await callShelfmarkJson<ShelfmarkReleasesResponse>({
+      config,
+      method: 'GET',
+      path: `/api/releases?${params.toString()}`,
+      cookie: sessionCookie,
+    })
+
+    if (!releasesResponse.response.ok) {
+      const errorMessage = normalizeErrorMessage(
+        (releasesResponse.body as ShelfmarkErrorResponse | undefined)?.error,
+      )
+
+      return {
+        ok: false,
+        status: 'provider_error',
+        error:
+          errorMessage ||
+          `Shelfmark release search failed (${releasesResponse.response.status}).`,
+      }
+    }
+
+    const releases = toShelfmarkReleaseCandidates(releasesResponse.body?.releases)
+
+    return {
+      ok: true,
+      releases,
+      sourcesSearched: Array.isArray(releasesResponse.body?.sources_searched)
+        ? releasesResponse.body.sources_searched
+        : [],
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      status: 'provider_error',
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Shelfmark release search failed unexpectedly.',
+    }
+  } finally {
+    if (sessionCookie) {
+      await callShelfmarkJson({
+        config,
+        method: 'POST',
+        path: '/api/auth/logout',
+        cookie: sessionCookie,
+      }).catch(() => undefined)
+    }
+  }
+}
+
+async function openShelfmarkSession(
+  config: ShelfmarkConfig,
+): Promise<{ ok: true; session: ShelfmarkSession } | ShelfmarkFailure> {
+  const authCheck = await callShelfmarkJson<ShelfmarkAuthCheckResponse>({
+    config,
+    method: 'GET',
+    path: '/api/auth/check',
+  })
+
+  if (!authCheck.response.ok) {
+    return {
+      ok: false,
+      status: 'provider_error',
+      error: `Shelfmark auth check failed (${authCheck.response.status}).`,
+    }
+  }
+
+  const authMode = normalizeShelfmarkAuthMode(authCheck.body?.auth_mode)
+
+  if (authMode === 'none') {
+    return {
+      ok: false,
+      status: 'unconfigured',
+      error:
+        'Shelfmark request API is disabled in no-auth mode. Enable local/OIDC/CWA auth and request workflow in Shelfmark.',
+    }
+  }
+
+  if (authMode === 'proxy') {
+    return {
+      ok: false,
+      status: 'unconfigured',
+      error:
+        'Shelfmark proxy-auth mode is not supported for backend request automation. Use a local service account instead.',
+    }
+  }
+
+  const login = await callShelfmarkJson<ShelfmarkLoginResponse>({
+    config,
+    method: 'POST',
+    path: '/api/auth/login',
+    body: {
+      username: config.username,
+      password: config.password,
+      remember_me: false,
+    },
+  })
+
+  const sessionCookie = extractSessionCookie(login.response)
+
+  if (!login.response.ok || login.body?.success !== true || !sessionCookie) {
+    const loginError = normalizeErrorMessage(login.body?.error)
+
+    return {
+      ok: false,
+      status: 'provider_error',
+      error:
+        loginError ||
+        'Shelfmark login failed. Check SHELFMARK_USERNAME/SHELFMARK_PASSWORD and service availability.',
+    }
+  }
+
+  const postLoginAuthCheck = await callShelfmarkJson<ShelfmarkAuthCheckResponse>({
+    config,
+    method: 'GET',
+    path: '/api/auth/check',
+    cookie: sessionCookie,
+  })
+
+  if (
+    !postLoginAuthCheck.response.ok ||
+    postLoginAuthCheck.body?.authenticated !== true
+  ) {
+    return {
+      ok: false,
+      status: 'provider_error',
+      error:
+        'Shelfmark login succeeded but session cookie was not accepted. Check reverse proxy, URL base path, and cookie forwarding.',
+    }
+  }
+
+  return {
+    ok: true,
+    session: {
+      cookie: sessionCookie,
+    },
+  }
+}
+
+function buildShelfmarkCreateRequestBody({
+  input,
+  title,
+  author,
+}: {
+  input: ShelfmarkRequestInput
+  title: string
+  author: string
+}) {
+  const selectedRelease = input.selectedRelease
+
+  if (!selectedRelease) {
+    return {
+      context: {
+        request_level: 'book',
+        content_type: 'ebook',
+      },
+      content_type: 'ebook',
+      book_data: {
+        title,
+        author,
+        provider: 'manual',
+        provider_id: buildManualProviderId(title, author),
+        content_type: 'ebook',
+      },
+      note: buildShelfmarkNote(input),
+    }
+  }
+
+  return {
+    context: {
+      request_level: 'release',
+      content_type: 'ebook',
+      source: selectedRelease.source,
+    },
+    content_type: 'ebook',
+    book_data: {
+      title,
+      author,
+      provider: 'manual',
+      provider_id: buildManualProviderId(title, author),
+      content_type: 'ebook',
+      source: selectedRelease.source,
+      format: selectedRelease.format,
+    },
+    release_data: {
+      source: selectedRelease.source,
+      source_id: selectedRelease.sourceId,
+      title: selectedRelease.title || title,
+      author: selectedRelease.author || author,
+      format: selectedRelease.format,
+      size: selectedRelease.size,
+      indexer: selectedRelease.indexer,
+      protocol: selectedRelease.protocol,
+      seeders: selectedRelease.seeders,
+      download_url: selectedRelease.downloadUrl,
+      content_type: 'ebook',
+    },
+    note: buildShelfmarkNote(input),
   }
 }
 
@@ -374,6 +600,12 @@ function buildShelfmarkNote(input: ShelfmarkRequestInput) {
     lines.push(`Source URL: ${input.sourceUrl}`)
   }
 
+  if (input.selectedRelease) {
+    lines.push(
+      `Selected release: ${input.selectedRelease.source}:${input.selectedRelease.sourceId}`,
+    )
+  }
+
   if (lines.length === 0) {
     return undefined
   }
@@ -455,6 +687,70 @@ function splitSetCookieHeader(headerValue: string) {
   }
 
   return cookies
+}
+
+function toShelfmarkReleaseCandidates(raw: unknown) {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+
+  const candidates: Array<ShelfmarkReleaseCandidate> = []
+
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      continue
+    }
+
+    const release = entry as Record<string, unknown>
+    const source = asCleanString(release.source)
+    const sourceId = asCleanString(release.source_id)
+
+    if (!source || !sourceId) {
+      continue
+    }
+
+    candidates.push({
+      source,
+      sourceId,
+      sourceLabel: source,
+      title: asCleanString(release.title),
+      author: asCleanString(release.author),
+      format: asCleanString(release.format),
+      size: asCleanString(release.size),
+      indexer: asCleanString(release.indexer),
+      protocol: asCleanString(release.protocol),
+      seeders: toFiniteNumber(release.seeders),
+      downloadUrl: asCleanString(release.download_url),
+    })
+  }
+
+  return candidates
+}
+
+function asCleanString(value: unknown) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : undefined
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value)
+  }
+
+  return undefined
+}
+
+function toFiniteNumber(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : undefined
+  }
+
+  return undefined
 }
 
 function normalizeErrorMessage(value: string | undefined) {

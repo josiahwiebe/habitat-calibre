@@ -98,7 +98,9 @@ Required in Shelfmark:
    `cwa`).
    - Request endpoints are disabled in Shelfmark no-auth mode.
 2. Enable requests in `Settings -> Users & Requests`.
-3. Set default ebook mode to `Request Book` (or `Request Release`).
+3. Set default ebook mode to `Request Release` if you want Habitat Calibre to
+   submit a user-selected release directly.
+   - `Request Book` still works, but Shelfmark will enforce book-level requests.
 4. Create a dedicated service-account user for Habitat Calibre.
 
 App env for Shelfmark delivery:
@@ -225,6 +227,7 @@ Recommended hardening:
 - `/download/$bookId/$format` ebook download
 - `/api/search` JSON search endpoint
 - `/api/request-book` request queue endpoint
+- `/api/request-book/releases` interactive release search endpoint (Shelfmark)
 - `/api/auth/plex` Plex token exchange
 - `/api/auth/me` session identity
 - `/api/auth/logout` session logout
