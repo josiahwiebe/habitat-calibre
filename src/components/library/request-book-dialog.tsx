@@ -136,8 +136,8 @@ export function RequestBookDialog({
                   Request a book
                 </Dialog.Title>
                 <Dialog.Description className="text-sm text-stone-600">
-                  Queue books directly into LazyLibrarian, with optional manual
-                  fallback when no match is found.
+                  Submit a request into your acquisition stack (Shelfmark or
+                  LazyLibrarian), then let it handle search and download.
                 </Dialog.Description>
               </div>
 

@@ -7,8 +7,17 @@ import {
   isLazyLibrarianConfigured,
   submitBookRequestToLazyLibrarian,
 } from './lazylibrarian'
+import {
+  isShelfmarkConfigured,
+  submitBookRequestToShelfmark,
+} from './shelfmark'
+import { normalizeEnvString } from './env'
 
-export type RequestDeliveryMode = 'telegram' | 'lazylibrarian' | 'both'
+export type RequestDeliveryMode =
+  | 'telegram'
+  | 'lazylibrarian'
+  | 'shelfmark'
+  | 'both'
 
 export type RequestDeliveryResult =
   | {
@@ -26,34 +35,19 @@ export type RequestDeliveryResult =
  * Reads configured request delivery strategy.
  */
 export function getRequestDeliveryMode(): RequestDeliveryMode {
-  const configured = process.env.REQUEST_DELIVERY_MODE?.trim().toLowerCase()
+  const configured =
+    normalizeEnvString(process.env.REQUEST_DELIVERY_MODE)?.toLowerCase()
 
   if (
     configured === 'telegram' ||
     configured === 'lazylibrarian' ||
+    configured === 'shelfmark' ||
     configured === 'both'
   ) {
     return configured
   }
 
   return 'lazylibrarian'
-}
-
-/**
- * Returns true when currently selected delivery mode has required config.
- */
-export function isRequestDeliveryConfigured() {
-  const mode = getRequestDeliveryMode()
-
-  if (mode === 'telegram') {
-    return isTelegramConfigured()
-  }
-
-  if (mode === 'lazylibrarian') {
-    return isLazyLibrarianConfigured()
-  }
-
-  return isTelegramConfigured() || isLazyLibrarianConfigured()
 }
 
 /**
@@ -70,6 +64,10 @@ export async function deliverBookRequest(
 
   if (mode === 'lazylibrarian') {
     return sendLazyLibrarianOnly(payload)
+  }
+
+  if (mode === 'shelfmark') {
+    return sendShelfmarkOnly(payload)
   }
 
   return sendBoth(payload)
@@ -123,6 +121,37 @@ async function sendLazyLibrarianOnly(
     ok: true,
     status: 'queued',
     message: llResult.message,
+  }
+}
+
+async function sendShelfmarkOnly(
+  payload: BookRequestMessage,
+): Promise<RequestDeliveryResult> {
+  if (!isShelfmarkConfigured()) {
+    return {
+      ok: false,
+      status: 'unconfigured',
+      error:
+        'Shelfmark delivery is not configured. Set SHELFMARK_BASE_URL, SHELFMARK_USERNAME, and SHELFMARK_PASSWORD.',
+    }
+  }
+
+  const shelfmarkResult = await submitBookRequestToShelfmark({
+    title: payload.title,
+    author: payload.author,
+    notes: payload.notes,
+    requesterIp: payload.requesterIp,
+    sourceUrl: payload.sourceUrl,
+  })
+
+  if (!shelfmarkResult.ok) {
+    return shelfmarkResult
+  }
+
+  return {
+    ok: true,
+    status: 'queued',
+    message: shelfmarkResult.message,
   }
 }
 

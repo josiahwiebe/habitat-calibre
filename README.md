@@ -12,7 +12,7 @@ It reads your existing Calibre `metadata.db` in read-only mode, serves covers an
 - Cover download endpoint
 - Goodreads deeplinks (direct book page when available, search fallback)
 - Plex OAuth sign-in with session cookies
-- Request-a-book dialog with LazyLibrarian auto-queueing
+- Request-a-book dialog with Shelfmark/LazyLibrarian delivery modes
 - Docker-first deploy for home server + Cloudflare Tunnel
 
 ## Stack
@@ -36,7 +36,11 @@ SESSION_SECRET=
 AUTH_PLEX_MODE=allowlist_or_shared
 PLEX_ALLOWED_EMAILS=
 PLEX_SERVER_MACHINE_ID=
-REQUEST_DELIVERY_MODE=lazylibrarian
+REQUEST_DELIVERY_MODE=shelfmark
+SHELFMARK_BASE_URL=
+SHELFMARK_USERNAME=
+SHELFMARK_PASSWORD=
+SHELFMARK_HTTP_TIMEOUT_MS=12000
 LAZYLIBRARIAN_BASE_URL=
 LAZYLIBRARIAN_API_KEY=
 LAZYLIBRARIAN_MATCH_THRESHOLD=84
@@ -75,9 +79,39 @@ CALIBRE_LIBRARY_PATH="$HOME/Dropbox/Library/eBooks/Calibre" bun run dev
 
 The app also auto-detects common Dropbox paths (`$HOME/Dropbox/...` and `$HOME/Library/CloudStorage/Dropbox/...`) if `CALIBRE_LIBRARY_PATH` is not set.
 
-For request automation, set `LAZYLIBRARIAN_BASE_URL` and
-`LAZYLIBRARIAN_API_KEY`. Telegram is optional fallback when
-`REQUEST_DELIVERY_MODE=both`.
+For request automation, choose one delivery provider with
+`REQUEST_DELIVERY_MODE`:
+
+- `shelfmark` (recommended for request-centric workflows)
+- `lazylibrarian`
+- `telegram`
+- `both` (LazyLibrarian plus Telegram fallback)
+
+## Shelfmark (request queue mode)
+
+Shelfmark can act like your request/download control-plane while Calibre remains
+the library manager.
+
+Required in Shelfmark:
+
+1. Enable an auth mode that creates DB-backed users (`builtin`, `oidc`, or
+   `cwa`).
+   - Request endpoints are disabled in Shelfmark no-auth mode.
+2. Enable requests in `Settings -> Users & Requests`.
+3. Set default ebook mode to `Request Book` (or `Request Release`).
+4. Create a dedicated service-account user for Habitat Calibre.
+
+App env for Shelfmark delivery:
+
+```bash
+REQUEST_DELIVERY_MODE=shelfmark
+SHELFMARK_BASE_URL=http://shelfmark:8084
+SHELFMARK_USERNAME=habitat-bot
+SHELFMARK_PASSWORD=your-password
+```
+
+If Shelfmark and Habitat Calibre run in separate compose projects, attach both
+services to a shared Docker network so the hostname resolves across stacks.
 
 ## LazyLibrarian (separate Docker app)
 

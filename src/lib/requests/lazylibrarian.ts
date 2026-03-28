@@ -1,3 +1,5 @@
+import { normalizeEnvString } from './env'
+
 const DEFAULT_MATCH_THRESHOLD = 84
 const MAX_QUEUE_RETRIES = 10
 const QUEUE_RETRY_DELAY_MS = 1200
@@ -310,14 +312,16 @@ function buildFindBookQuery(title: string, author: string | undefined) {
 }
 
 function getLazyLibrarianConfig(): LazyLibrarianConfig | null {
-  const baseUrl = process.env.LAZYLIBRARIAN_BASE_URL?.trim()
-  const apiKey = process.env.LAZYLIBRARIAN_API_KEY?.trim()
+  const baseUrl = normalizeEnvString(process.env.LAZYLIBRARIAN_BASE_URL)
+  const apiKey = normalizeEnvString(process.env.LAZYLIBRARIAN_API_KEY)
 
   if (!baseUrl || !apiKey) {
     return null
   }
 
-  const thresholdInput = Number(process.env.LAZYLIBRARIAN_MATCH_THRESHOLD)
+  const thresholdInput = Number(
+    normalizeEnvString(process.env.LAZYLIBRARIAN_MATCH_THRESHOLD),
+  )
   const matchThreshold = Number.isFinite(thresholdInput)
     ? Math.max(0, Math.min(100, thresholdInput))
     : DEFAULT_MATCH_THRESHOLD

@@ -1,10 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { requireAuthenticatedRoute } from '~/lib/auth/guard'
-import {
-  deliverBookRequest,
-  isRequestDeliveryConfigured,
-} from '~/lib/requests/delivery'
+import { deliverBookRequest } from '~/lib/requests/delivery'
 
 const REQUEST_WINDOW_MS = 1000 * 60 * 60
 const REQUEST_LIMIT_PER_WINDOW = 6
@@ -23,17 +20,6 @@ export const Route = createFileRoute('/api/request-book')({
     middleware: [requireAuthenticatedRoute],
     handlers: {
       POST: async ({ request }) => {
-        if (!isRequestDeliveryConfigured()) {
-          return Response.json(
-            {
-              ok: false,
-              error:
-                'Request delivery is not configured yet. Set LazyLibrarian or Telegram credentials.',
-            },
-            { status: 503 },
-          )
-        }
-
         const payload = await parseRequestPayload(request)
 
         if (!payload.ok) {
