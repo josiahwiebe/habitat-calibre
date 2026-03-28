@@ -19,7 +19,7 @@ export interface RequestBookDialogProps {
 }
 
 /**
- * Modal form that sends a Telegram message with requested book details.
+ * Modal form that queues or forwards requested book details.
  */
 export function RequestBookDialog({
   prefillTitle,
@@ -86,7 +86,7 @@ export function RequestBookDialog({
       }
 
       setStatus('success')
-      setFeedback(payload.message || 'Request sent to Telegram.')
+      setFeedback(payload.message || 'Request received.')
       setAuthor('')
       setNotes('')
       setHoneypot('')
@@ -136,8 +136,8 @@ export function RequestBookDialog({
                   Request a book
                 </Dialog.Title>
                 <Dialog.Description className="text-sm text-stone-600">
-                  Send yourself a Telegram notification so you can add the book to
-                  Calibre later.
+                  Queue books directly into LazyLibrarian, with optional manual
+                  fallback when no match is found.
                 </Dialog.Description>
               </div>
 
@@ -241,7 +241,7 @@ export function RequestBookDialog({
                     ) : (
                       <>
                         <Send className="mr-1 size-4" aria-hidden="true" />
-                        Send request
+                        Queue request
                       </>
                     )}
                   </Button>

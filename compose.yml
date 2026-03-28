@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     image: habitat-calibre:latest
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "3000:3000"
     environment:
@@ -12,6 +14,14 @@ services:
       PORT: 3000
       CALIBRE_LIBRARY_PATH: /library
       CALIBRE_CACHE_TTL_SECONDS: 45
+      SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret-before-production-use-1234567890}
+      AUTH_PLEX_MODE: ${AUTH_PLEX_MODE:-allowlist_or_shared}
+      PLEX_ALLOWED_EMAILS: ${PLEX_ALLOWED_EMAILS:-}
+      PLEX_SERVER_MACHINE_ID: ${PLEX_SERVER_MACHINE_ID:-}
+      REQUEST_DELIVERY_MODE: ${REQUEST_DELIVERY_MODE:-lazylibrarian}
+      LAZYLIBRARIAN_BASE_URL: ${LAZYLIBRARIAN_BASE_URL:-}
+      LAZYLIBRARIAN_API_KEY: ${LAZYLIBRARIAN_API_KEY:-}
+      LAZYLIBRARIAN_MATCH_THRESHOLD: ${LAZYLIBRARIAN_MATCH_THRESHOLD:-84}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       TELEGRAM_THREAD_ID: ${TELEGRAM_THREAD_ID:-}

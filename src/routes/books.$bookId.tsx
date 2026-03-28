@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { ArrowUpRight, ChevronLeft, Download, Image } from 'lucide-react'
 import { BookCover } from '~/components/library/book-cover'
 import { Badge } from '~/components/ui/badge'
@@ -7,6 +7,16 @@ import { parseLibrarySearch } from '~/lib/calibre/search-schema'
 import { getLibraryBookDetailById } from '~/lib/calibre/server'
 
 export const Route = createFileRoute('/books/$bookId')({
+  beforeLoad: ({ context, location }) => {
+    if (!context.user) {
+      throw redirect({
+        to: '/login',
+        search: {
+          redirect: location.href,
+        },
+      })
+    }
+  },
   loader: ({ params }) =>
     getLibraryBookDetailById({
       data: { bookId: Number(params.bookId) },

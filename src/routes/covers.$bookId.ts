@@ -1,9 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { requireAuthenticatedRoute } from '~/lib/auth/guard'
 import { getCoverAsset } from '~/lib/calibre/catalog'
 import { createFileAssetResponse } from '~/lib/calibre/http'
 
 export const Route = createFileRoute('/covers/$bookId')({
   server: {
+    middleware: [requireAuthenticatedRoute],
     handlers: {
       GET: async ({ request }) => {
         const url = new URL(request.url)

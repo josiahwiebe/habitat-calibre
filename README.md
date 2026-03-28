@@ -11,7 +11,8 @@ It reads your existing Calibre `metadata.db` in read-only mode, serves covers an
 - Book detail pages with direct format downloads
 - Cover download endpoint
 - Goodreads deeplinks (direct book page when available, search fallback)
-- Request-a-book dialog that sends Telegram bot notifications
+- Plex OAuth sign-in with session cookies
+- Request-a-book dialog with LazyLibrarian auto-queueing
 - Docker-first deploy for home server + Cloudflare Tunnel
 
 ## Stack
@@ -31,6 +32,14 @@ APP_NAME=Habitat Calibre
 CALIBRE_LIBRARY_PATH=/library
 CALIBRE_CACHE_TTL_SECONDS=45
 PORT=3000
+SESSION_SECRET=
+AUTH_PLEX_MODE=allowlist_or_shared
+PLEX_ALLOWED_EMAILS=
+PLEX_SERVER_MACHINE_ID=
+REQUEST_DELIVERY_MODE=lazylibrarian
+LAZYLIBRARIAN_BASE_URL=
+LAZYLIBRARIAN_API_KEY=
+LAZYLIBRARIAN_MATCH_THRESHOLD=84
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
 TELEGRAM_THREAD_ID=
@@ -66,7 +75,64 @@ CALIBRE_LIBRARY_PATH="$HOME/Dropbox/Library/eBooks/Calibre" bun run dev
 
 The app also auto-detects common Dropbox paths (`$HOME/Dropbox/...` and `$HOME/Library/CloudStorage/Dropbox/...`) if `CALIBRE_LIBRARY_PATH` is not set.
 
-To enable request notifications locally, set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
+For request automation, set `LAZYLIBRARIAN_BASE_URL` and
+`LAZYLIBRARIAN_API_KEY`. Telegram is optional fallback when
+`REQUEST_DELIVERY_MODE=both`.
+
+## LazyLibrarian (separate Docker app)
+
+Run LazyLibrarian as a separate service on Habitat and point Habitat Calibre at
+its base URL.
+
+1. Create host folders:
+   - `/srv/lazylibrarian/config`
+   - `/srv/lazylibrarian/downloads`
+   - your Dropbox Calibre library on Habitat (example:
+     `/srv/dropbox/Library/eBooks/Calibre`)
+2. Use a dedicated compose stack:
+
+```yaml
+services:
+  lazylibrarian:
+    image: lscr.io/linuxserver/lazylibrarian:latest
+    container_name: lazylibrarian
+    restart: unless-stopped
+    ports:
+      - "5299:5299"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Edmonton
+      - DOCKER_MODS=linuxserver/mods:universal-calibre
+    volumes:
+      - /srv/lazylibrarian/config:/config
+      - /srv/lazylibrarian/downloads:/downloads
+      - /srv/dropbox/Library/eBooks/Calibre:/books
+```
+
+3. In LazyLibrarian UI (`http://<habitat-ip>:5299/home`):
+   - enable API and generate API key
+   - set `Processing -> Base Destination Folder` to `/books`
+   - set `Processing -> Calibredb import program` to `/usr/bin/calibredb`
+   - set downloader directory to `/downloads`
+   - configure providers and downloader clients
+   - if LL does not detect your library, verify the mount first:
+
+```bash
+docker exec lazylibrarian ls -lah /books
+docker exec lazylibrarian test -f /books/metadata.db && echo "metadata.db found"
+```
+
+   - if `metadata.db` is missing, the host path mounted to `/books` is wrong
+   - if permission errors appear, set `PUID`/`PGID` to the Dropbox owner on Habitat and restart LL
+   - after fixing mounts, trigger `Manage -> Library Scan` in LL to index existing books
+4. Set app env:
+   - `REQUEST_DELIVERY_MODE=lazylibrarian` (or `both` for Telegram fallback)
+   - `LAZYLIBRARIAN_BASE_URL=http://lazylibrarian:5299` (or reachable host URL)
+   - `LAZYLIBRARIAN_API_KEY=<your-ll-api-key>`
+
+If Habitat Calibre and LazyLibrarian run in separate compose projects, attach
+both services to a shared Docker network so `lazylibrarian` resolves by name.
 
 ## Build
 
@@ -77,6 +143,12 @@ npm run build
 ## Docker
 
 ### 1) Set host library path
+
+Create a local `.env` first so Docker can load all app settings directly:
+
+```bash
+cp .env.example .env
+```
 
 Set `CALIBRE_HOST_PATH` in `.env` (or shell) to your real macOS Calibre path.
 
@@ -113,11 +185,15 @@ Recommended hardening:
 ## Routes
 
 - `/` library browse/search
+- `/login` Plex sign-in
 - `/books/$bookId` detail page
 - `/covers/$bookId` cover image (`?download=1` for attachment)
 - `/download/$bookId/$format` ebook download
 - `/api/search` JSON search endpoint
-- `/api/request-book` Telegram request endpoint
+- `/api/request-book` request queue endpoint
+- `/api/auth/plex` Plex token exchange
+- `/api/auth/me` session identity
+- `/api/auth/logout` session logout
 - `/api/health` runtime health
 - `/api/rescan` force metadata rescan
 
@@ -127,3 +203,5 @@ Recommended hardening:
 - This app does not edit metadata.
 - Path resolution falls back to folder-id matching when `books.path` casing/punctuation does not match Linux filesystems exactly.
 - Request submissions are soft rate-limited per client IP to reduce bot spam.
+- Authentication mode `allowlist_or_shared` allows either explicit email
+  allowlist matches or Plex shared-library access.

@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { notFound } from '@tanstack/react-router'
+import { requireSessionUser } from '~/lib/auth/session'
 import { parseLibrarySearch } from './search-schema'
 import {
   createUnavailableSearchResponse,
@@ -15,6 +16,8 @@ import {
 export const getLibrarySearchResult = createServerFn({ method: 'POST' })
   .inputValidator((raw) => parseLibrarySearch(raw))
   .handler(async ({ data }) => {
+    await requireSessionUser()
+
     try {
       return searchLibrary(data)
     } catch (error) {
@@ -39,6 +42,8 @@ export const getLibraryBookDetailById = createServerFn({ method: 'POST' })
     return { bookId: value }
   })
   .handler(async ({ data }) => {
+    await requireSessionUser()
+
     const book = getLibraryBookDetail(data.bookId)
 
     if (!book) {
@@ -53,6 +58,7 @@ export const getLibraryBookDetailById = createServerFn({ method: 'POST' })
  */
 export const getLibraryRuntimeHealth = createServerFn({ method: 'GET' }).handler(
   async () => {
+    await requireSessionUser()
     return getLibraryHealth()
   },
 )
@@ -62,6 +68,7 @@ export const getLibraryRuntimeHealth = createServerFn({ method: 'GET' }).handler
  */
 export const forceLibraryRescan = createServerFn({ method: 'POST' }).handler(
   async () => {
+    await requireSessionUser()
     return rescanLibrary()
   },
 )

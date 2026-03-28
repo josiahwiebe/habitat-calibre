@@ -1,9 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
+import { requireAuthenticatedRoute } from '~/lib/auth/guard'
 import {
-  isTelegramConfigured,
-  sendBookRequestToTelegram,
-} from '~/lib/telegram'
+  deliverBookRequest,
+  isRequestDeliveryConfigured,
+} from '~/lib/requests/delivery'
 
 const REQUEST_WINDOW_MS = 1000 * 60 * 60
 const REQUEST_LIMIT_PER_WINDOW = 6
@@ -19,14 +20,15 @@ const requestBookSchema = z.object({
 
 export const Route = createFileRoute('/api/request-book')({
   server: {
+    middleware: [requireAuthenticatedRoute],
     handlers: {
       POST: async ({ request }) => {
-        if (!isTelegramConfigured()) {
+        if (!isRequestDeliveryConfigured()) {
           return Response.json(
             {
               ok: false,
               error:
-                'Request delivery is not configured yet. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID.',
+                'Request delivery is not configured yet. Set LazyLibrarian or Telegram credentials.',
             },
             { status: 503 },
           )
@@ -59,7 +61,7 @@ export const Route = createFileRoute('/api/request-book')({
           const origin = request.headers.get('origin')?.trim()
           const referer = request.headers.get('referer')?.trim()
 
-          await sendBookRequestToTelegram({
+          const delivery = await deliverBookRequest({
             title: payload.data.title,
             author: normalizeOptional(payload.data.author),
             notes: normalizeOptional(payload.data.notes),
@@ -70,9 +72,31 @@ export const Route = createFileRoute('/api/request-book')({
               request.headers.get('user-agent')?.slice(0, 250) || undefined,
           })
 
-          return Response.json({ ok: true, message: 'Request sent to Telegram.' })
+          if (!delivery.ok) {
+            return Response.json(
+              {
+                ok: false,
+                error: delivery.error,
+                status: delivery.status,
+              },
+              {
+                status:
+                  delivery.status === 'unconfigured'
+                    ? 503
+                    : delivery.status === 'no_match'
+                      ? 404
+                      : 502,
+              },
+            )
+          }
+
+          return Response.json({
+            ok: true,
+            status: delivery.status,
+            message: delivery.message,
+          })
         } catch (error) {
-          console.error('Failed to send Telegram request', error)
+          console.error('Failed to deliver request', error)
 
           return Response.json(
             {

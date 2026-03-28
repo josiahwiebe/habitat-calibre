@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Filter, Search, X } from 'lucide-react'
 import { BookCard } from '~/components/library/book-card'
 import { BookListItem } from '~/components/library/book-list-item'
@@ -13,6 +13,16 @@ import type { LibrarySearchInput } from '~/lib/calibre/types'
 import { cn } from '~/lib/utils'
 
 export const Route = createFileRoute('/')({
+  beforeLoad: ({ context, location }) => {
+    if (!context.user) {
+      throw redirect({
+        to: '/login',
+        search: {
+          redirect: location.href,
+        },
+      })
+    }
+  },
   validateSearch: (search) => parseLibrarySearch(search),
   loaderDeps: ({ search }) => search,
   loader: ({ deps }) => getLibrarySearchResult({ data: deps }),
@@ -23,7 +33,7 @@ export const Route = createFileRoute('/')({
  * Main searchable library route.
  */
 function Home() {
-  const search = Route.useSearch()
+  const search = Route.useSearch() as LibrarySearchInput
   const data = Route.useLoaderData()
   const navigate = Route.useNavigate()
   const [isSmallViewport, setIsSmallViewport] = React.useState(false)
