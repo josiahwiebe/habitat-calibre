@@ -16,6 +16,7 @@ import { Route as BooksBookIdRouteImport } from './routes/books.$bookId'
 import { Route as AuthorsAuthorSlugRouteImport } from './routes/authors.$authorSlug'
 import { Route as ApiSearchRouteImport } from './routes/api.search'
 import { Route as ApiRescanRouteImport } from './routes/api.rescan'
+import { Route as ApiRequestBookRouteImport } from './routes/api.request-book'
 import { Route as ApiHealthRouteImport } from './routes/api.health'
 import { Route as DownloadBookIdFormatRouteImport } from './routes/download.$bookId.$format'
 
@@ -54,6 +55,11 @@ const ApiRescanRoute = ApiRescanRouteImport.update({
   path: '/api/rescan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRequestBookRoute = ApiRequestBookRouteImport.update({
+  id: '/api/request-book',
+  path: '/api/request-book',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
@@ -68,6 +74,7 @@ const DownloadBookIdFormatRoute = DownloadBookIdFormatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/request-book': typeof ApiRequestBookRoute
   '/api/rescan': typeof ApiRescanRoute
   '/api/search': typeof ApiSearchRoute
   '/authors/$authorSlug': typeof AuthorsAuthorSlugRoute
@@ -79,6 +86,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/request-book': typeof ApiRequestBookRoute
   '/api/rescan': typeof ApiRescanRoute
   '/api/search': typeof ApiSearchRoute
   '/authors/$authorSlug': typeof AuthorsAuthorSlugRoute
@@ -91,6 +99,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/request-book': typeof ApiRequestBookRoute
   '/api/rescan': typeof ApiRescanRoute
   '/api/search': typeof ApiSearchRoute
   '/authors/$authorSlug': typeof AuthorsAuthorSlugRoute
@@ -104,6 +113,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/api/health'
+    | '/api/request-book'
     | '/api/rescan'
     | '/api/search'
     | '/authors/$authorSlug'
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/api/health'
+    | '/api/request-book'
     | '/api/rescan'
     | '/api/search'
     | '/authors/$authorSlug'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/api/health'
+    | '/api/request-book'
     | '/api/rescan'
     | '/api/search'
     | '/authors/$authorSlug'
@@ -138,6 +150,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiHealthRoute: typeof ApiHealthRoute
+  ApiRequestBookRoute: typeof ApiRequestBookRoute
   ApiRescanRoute: typeof ApiRescanRoute
   ApiSearchRoute: typeof ApiSearchRoute
   AuthorsAuthorSlugRoute: typeof AuthorsAuthorSlugRoute
@@ -198,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRescanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/request-book': {
+      id: '/api/request-book'
+      path: '/api/request-book'
+      fullPath: '/api/request-book'
+      preLoaderRoute: typeof ApiRequestBookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/health': {
       id: '/api/health'
       path: '/api/health'
@@ -218,6 +238,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiHealthRoute: ApiHealthRoute,
+  ApiRequestBookRoute: ApiRequestBookRoute,
   ApiRescanRoute: ApiRescanRoute,
   ApiSearchRoute: ApiSearchRoute,
   AuthorsAuthorSlugRoute: AuthorsAuthorSlugRoute,

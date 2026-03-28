@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Filter, Search, X } from 'lucide-react'
 import { BookCard } from '~/components/library/book-card'
 import { BookListItem } from '~/components/library/book-list-item'
+import { RequestBookDialog } from '~/components/library/request-book-dialog'
 import { SortSelect } from '~/components/library/sort-select'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -181,6 +182,8 @@ function Home() {
               onChange={(value) => updateSearch({ sort: value, page: 1 })}
             />
 
+            <RequestBookDialog prefillTitle={queryText} />
+
             <Button
               variant={activeView === 'grid' ? 'default' : 'secondary'}
               size="sm"
@@ -287,7 +290,7 @@ function Home() {
               ? 'Check your CALIBRE_LIBRARY_PATH value and verify metadata.db exists.'
               : 'Try removing a filter or searching with fewer terms.'}
           </p>
-          <div className="mt-4">
+          <div className="mt-4 flex items-center justify-center gap-2">
             <Button
               variant="secondary"
               onClick={() =>
@@ -304,6 +307,7 @@ function Home() {
             >
               Reset filters
             </Button>
+            {!data.runtimeError ? <RequestBookDialog prefillTitle={queryText} /> : null}
           </div>
         </section>
       ) : activeView === 'grid' ? (

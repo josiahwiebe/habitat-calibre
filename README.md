@@ -11,6 +11,7 @@ It reads your existing Calibre `metadata.db` in read-only mode, serves covers an
 - Book detail pages with direct format downloads
 - Cover download endpoint
 - Goodreads deeplinks (direct book page when available, search fallback)
+- Request-a-book dialog that sends Telegram bot notifications
 - Docker-first deploy for home server + Cloudflare Tunnel
 
 ## Stack
@@ -30,6 +31,9 @@ APP_NAME=Habitat Calibre
 CALIBRE_LIBRARY_PATH=/library
 CALIBRE_CACHE_TTL_SECONDS=45
 PORT=3000
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+TELEGRAM_THREAD_ID=
 ```
 
 ## Local Development
@@ -61,6 +65,8 @@ CALIBRE_LIBRARY_PATH="$HOME/Dropbox/Library/eBooks/Calibre" bun run dev
 ```
 
 The app also auto-detects common Dropbox paths (`$HOME/Dropbox/...` and `$HOME/Library/CloudStorage/Dropbox/...`) if `CALIBRE_LIBRARY_PATH` is not set.
+
+To enable request notifications locally, set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 
 ## Build
 
@@ -111,6 +117,7 @@ Recommended hardening:
 - `/covers/$bookId` cover image (`?download=1` for attachment)
 - `/download/$bookId/$format` ebook download
 - `/api/search` JSON search endpoint
+- `/api/request-book` Telegram request endpoint
 - `/api/health` runtime health
 - `/api/rescan` force metadata rescan
 
@@ -119,3 +126,4 @@ Recommended hardening:
 - Calibre remains the source of truth.
 - This app does not edit metadata.
 - Path resolution falls back to folder-id matching when `books.path` casing/punctuation does not match Linux filesystems exactly.
+- Request submissions are soft rate-limited per client IP to reduce bot spam.

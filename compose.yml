@@ -12,6 +12,9 @@ services:
       PORT: 3000
       CALIBRE_LIBRARY_PATH: /library
       CALIBRE_CACHE_TTL_SECONDS: 45
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TELEGRAM_THREAD_ID: ${TELEGRAM_THREAD_ID:-}
     volumes:
       - ${CALIBRE_HOST_PATH:-/Users/YOUR_USER/Dropbox/Library/eBooks/Calibre}:/library:ro
     healthcheck:
