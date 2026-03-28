@@ -92,7 +92,7 @@ CALIBRE_HOST_PATH=/Users/YOUR_USER/Dropbox/Library/eBooks/Calibre
 docker compose up -d --build
 ```
 
-Docker uses `node:lts-bookworm-slim`.
+Docker uses Bun for dependency install/build and `node:lts-bookworm-slim` for runtime.
 
 ### 3) Verify
 
