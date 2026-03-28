@@ -92,7 +92,7 @@ export interface LibrarySearchInput {
   format?: string
   language?: string
   sort: LibrarySort
-  view: LibraryView
+  view?: LibraryView
   page: number
   perPage: number
 }

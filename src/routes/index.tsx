@@ -25,6 +25,25 @@ function Home() {
   const search = Route.useSearch()
   const data = Route.useLoaderData()
   const navigate = Route.useNavigate()
+  const [isSmallViewport, setIsSmallViewport] = React.useState(false)
+
+  React.useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px)')
+
+    const apply = () => {
+      setIsSmallViewport(mediaQuery.matches)
+    }
+
+    apply()
+
+    mediaQuery.addEventListener('change', apply)
+
+    return () => {
+      mediaQuery.removeEventListener('change', apply)
+    }
+  }, [])
+
+  const activeView = search.view ?? (isSmallViewport ? 'list' : 'grid')
 
   const [queryText, setQueryText] = React.useState(search.q ?? '')
 
@@ -163,14 +182,14 @@ function Home() {
             />
 
             <Button
-              variant={search.view === 'grid' ? 'default' : 'secondary'}
+              variant={activeView === 'grid' ? 'default' : 'secondary'}
               size="sm"
               onClick={() => updateSearch({ view: 'grid' })}
             >
               Grid
             </Button>
             <Button
-              variant={search.view === 'list' ? 'default' : 'secondary'}
+              variant={activeView === 'list' ? 'default' : 'secondary'}
               size="sm"
               onClick={() => updateSearch({ view: 'list' })}
             >
@@ -287,7 +306,7 @@ function Home() {
             </Button>
           </div>
         </section>
-      ) : search.view === 'grid' ? (
+      ) : activeView === 'grid' ? (
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
           {data.books.map((book) => (
             <BookCard key={book.id} book={book} />
