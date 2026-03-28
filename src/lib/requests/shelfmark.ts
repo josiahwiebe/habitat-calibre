@@ -149,6 +149,25 @@ export async function submitBookRequestToShelfmark(
           loginError ||
           'Shelfmark login failed. Check SHELFMARK_USERNAME/SHELFMARK_PASSWORD and service availability.',
       }
+      }
+
+    const postLoginAuthCheck = await callShelfmarkJson<ShelfmarkAuthCheckResponse>({
+      config,
+      method: 'GET',
+      path: '/api/auth/check',
+      cookie: sessionCookie,
+    })
+
+    if (
+      !postLoginAuthCheck.response.ok ||
+      postLoginAuthCheck.body?.authenticated !== true
+    ) {
+      return {
+        ok: false,
+        status: 'provider_error',
+        error:
+          'Shelfmark login succeeded but session cookie was not accepted. Check reverse proxy, URL base path, and cookie forwarding.',
+      }
     }
 
     const createRequestResponse = await callShelfmarkJson<ShelfmarkErrorResponse>({
@@ -165,8 +184,8 @@ export async function submitBookRequestToShelfmark(
         book_data: {
           title,
           author,
-          provider: 'habitat-calibre',
-          provider_id: buildProviderId(title, author),
+          provider: 'manual',
+          provider_id: buildManualProviderId(title, author),
           content_type: 'ebook',
         },
         note: buildShelfmarkNote(input),
@@ -263,7 +282,7 @@ async function callShelfmarkJson<TBody = unknown>({
   cookie?: string
   body?: Record<string, unknown>
 }) {
-  const url = new URL(path, config.baseUrl)
+  const url = resolveShelfmarkUrl(config.baseUrl, path)
 
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -277,7 +296,7 @@ async function callShelfmarkJson<TBody = unknown>({
     headers['Content-Type'] = 'application/json'
   }
 
-  const response = await fetchWithTimeout(url.toString(), {
+  const response = await fetchWithTimeout(url, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
@@ -318,10 +337,10 @@ function extractSessionCookie(response: Response) {
     getSetCookie?: () => Array<string>
   }
 
-  const setCookies =
-    typeof headers.getSetCookie === 'function' ? headers.getSetCookie() : []
-
-  const primaryCookie = setCookies[0] ?? response.headers.get('set-cookie')
+  const setCookies = collectSetCookieHeaders(headers)
+  const primaryCookie =
+    setCookies.find((cookie) => cookie.toLowerCase().startsWith('session=')) ??
+    setCookies[0]
 
   if (!primaryCookie) {
     return undefined
@@ -331,12 +350,12 @@ function extractSessionCookie(response: Response) {
   return cookieValue && cookieValue.length > 0 ? cookieValue : undefined
 }
 
-function buildProviderId(title: string, author: string) {
+function buildManualProviderId(title: string, author: string) {
   const digest = createHash('sha1')
     .update(`${title.toLowerCase()}|${author.toLowerCase()}`)
     .digest('hex')
 
-  return `habitat-${digest.slice(0, 20)}`
+  return `manual-${digest.slice(0, 20)}`
 }
 
 function buildShelfmarkNote(input: ShelfmarkRequestInput) {
@@ -368,6 +387,74 @@ function buildShelfmarkNote(input: ShelfmarkRequestInput) {
 function normalizeShelfmarkAuthMode(value: string | undefined) {
   const normalized = normalizeErrorMessage(value)
   return normalized ? normalized.toLowerCase() : undefined
+}
+
+function resolveShelfmarkUrl(baseUrl: string, path: string) {
+  const normalizedPath = path.startsWith('/') ? path.slice(1) : path
+  const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
+  return new URL(normalizedPath, normalizedBase).toString()
+}
+
+function collectSetCookieHeaders(
+  headers: Headers & {
+    getSetCookie?: () => Array<string>
+  },
+) {
+  if (typeof headers.getSetCookie === 'function') {
+    const cookies = headers.getSetCookie().filter((entry) => entry.trim().length > 0)
+
+    if (cookies.length > 0) {
+      return cookies
+    }
+  }
+
+  const combined = headers.get('set-cookie')
+
+  if (!combined || combined.trim().length === 0) {
+    return []
+  }
+
+  return splitSetCookieHeader(combined)
+}
+
+function splitSetCookieHeader(headerValue: string) {
+  const cookies: Array<string> = []
+  let current = ''
+  let inExpiresAttribute = false
+
+  for (let index = 0; index < headerValue.length; index += 1) {
+    const character = headerValue[index]
+
+    if (character === ',') {
+      if (!inExpiresAttribute) {
+        if (current.trim().length > 0) {
+          cookies.push(current.trim())
+        }
+
+        current = ''
+        continue
+      }
+    }
+
+    current += character
+
+    const lowerCurrent = current.toLowerCase()
+
+    if (lowerCurrent.endsWith('expires=')) {
+      inExpiresAttribute = true
+      continue
+    }
+
+    if (inExpiresAttribute && character === ';') {
+      inExpiresAttribute = false
+    }
+  }
+
+  if (current.trim().length > 0) {
+    cookies.push(current.trim())
+  }
+
+  return cookies
 }
 
 function normalizeErrorMessage(value: string | undefined) {
