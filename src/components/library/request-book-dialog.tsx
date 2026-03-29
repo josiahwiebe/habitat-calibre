@@ -115,7 +115,7 @@ export function RequestBookDialog({
         setReleaseStatus('error')
         setReleaseFeedback(
           payload.error ||
-            'Could not search releases right now. Submit a book-level request instead.',
+            'Could not search releases right now. Try again in a moment.',
         )
         return
       }
@@ -124,9 +124,7 @@ export function RequestBookDialog({
 
       if (releases.length === 0) {
         setReleaseStatus('ready')
-        setReleaseFeedback(
-          'No release matches found. You can still submit a book-level request.',
-        )
+        setReleaseFeedback('No release matches found. Refine title or author and retry.')
         return
       }
 
@@ -148,6 +146,12 @@ export function RequestBookDialog({
     if (normalizedTitle.length < 2) {
       setStatus('error')
       setFeedback('Please provide a book title.')
+      return
+    }
+
+    if (!selectedRelease) {
+      setStatus('error')
+      setFeedback('Search and select a release before submitting.')
       return
     }
 
@@ -235,8 +239,8 @@ export function RequestBookDialog({
                   Request a book
                 </Dialog.Title>
                 <Dialog.Description className="text-sm text-stone-600">
-                  Submit a request into your acquisition stack (Shelfmark or
-                  LazyLibrarian), then let it handle search and download.
+                  Search releases, select the exact match, then submit that
+                  release as the request.
                 </Dialog.Description>
               </div>
 
@@ -290,8 +294,7 @@ export function RequestBookDialog({
                 <section className="space-y-2 rounded-xl border border-stone-300/80 bg-stone-100/70 px-3 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs text-stone-700">
-                      Optional: search release options in Shelfmark and choose one
-                      before submitting.
+                      Step 2: search release options and select the exact match.
                     </p>
                     <Button
                       type="button"
@@ -421,12 +424,15 @@ export function RequestBookDialog({
                   <Button
                     variant="secondary"
                     type="button"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isSearchingReleases}
                     onClick={() => setIsOpen(false)}
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSubmitting}>
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting || isSearchingReleases || !selectedRelease}
+                  >
                     {isSubmitting ? (
                       <>
                         <LoaderCircle className="mr-1 size-4 animate-spin" aria-hidden="true" />
@@ -435,7 +441,7 @@ export function RequestBookDialog({
                     ) : (
                       <>
                         <Send className="mr-1 size-4" aria-hidden="true" />
-                        Queue request
+                        Request selected release
                       </>
                     )}
                   </Button>

@@ -948,6 +948,16 @@ function sortBooks(
   const sorted = [...books]
 
   switch (sort) {
+    case 'added-asc':
+      sorted.sort((left, right) =>
+        byAddedTime(left) - byAddedTime(right),
+      )
+      return sorted
+    case 'added-desc':
+      sorted.sort((left, right) =>
+        byAddedTime(right) - byAddedTime(left),
+      )
+      return sorted
     case 'title-asc':
       sorted.sort((left, right) => left.sortTitle.localeCompare(right.sortTitle))
       return sorted
@@ -962,7 +972,7 @@ function sortBooks(
       return sorted
     case 'relevance':
       if (!hasQuery) {
-        sorted.sort((left, right) => asTime(right.publishedAt) - asTime(left.publishedAt))
+        sorted.sort((left, right) => byAddedTime(right) - byAddedTime(left))
         return sorted
       }
 
@@ -978,6 +988,16 @@ function sortBooks(
 
       return sorted
   }
+}
+
+function byAddedTime(book: ManifestBookRecord) {
+  const added = asTime(book.addedAt)
+
+  if (added > 0) {
+    return added
+  }
+
+  return asTime(book.publishedAt)
 }
 
 function scoreBookMatch(

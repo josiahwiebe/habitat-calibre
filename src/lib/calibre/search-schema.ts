@@ -33,7 +33,7 @@ export function parseLibrarySearch(raw: unknown): LibrarySearchInput {
     language: parsed.language
       ? parsed.language.toLowerCase()
       : undefined,
-    sort: parsed.sort ?? 'relevance',
+    sort: parsed.sort ?? 'added-desc',
     view: parsed.view,
     page: parsed.page ?? 1,
     perPage: parsed.perPage ?? 36,

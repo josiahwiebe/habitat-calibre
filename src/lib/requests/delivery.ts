@@ -136,6 +136,14 @@ async function sendShelfmarkOnly(
     }
   }
 
+  if (!payload.selectedRelease) {
+    return {
+      ok: false,
+      status: 'provider_error',
+      error: 'Search and select a release before requesting in Shelfmark mode.',
+    }
+  }
+
   const shelfmarkResult = await submitBookRequestToShelfmark({
     title: payload.title,
     author: payload.author,

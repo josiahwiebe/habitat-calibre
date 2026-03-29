@@ -3,6 +3,8 @@ import { Select } from '@base-ui/react/select'
 import type { LibrarySort } from '~/lib/calibre/types'
 
 const SORT_OPTIONS: Array<{ value: LibrarySort; label: string }> = [
+  { value: 'added-desc', label: 'Recently added' },
+  { value: 'added-asc', label: 'Oldest added' },
   { value: 'relevance', label: 'Relevance' },
   { value: 'newest', label: 'Newest published' },
   { value: 'oldest', label: 'Oldest published' },

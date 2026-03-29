@@ -1,4 +1,6 @@
 export const LIBRARY_SORT_VALUES = [
+  'added-desc',
+  'added-asc',
   'relevance',
   'newest',
   'oldest',
