@@ -24,6 +24,23 @@ export interface PlexAccessDecision {
 }
 
 /**
+ * Builds common Plex API headers used by server-side auth checks.
+ */
+function createPlexApiHeaders(authToken: string) {
+  const configuredClientId = process.env.PLEX_CLIENT_IDENTIFIER?.trim()
+  const serverMachineId = process.env.PLEX_SERVER_MACHINE_ID?.trim()
+
+  const clientIdentifier =
+    configuredClientId || serverMachineId || 'habitat-calibre-server-auth'
+
+  return {
+    Accept: 'application/json',
+    'X-Plex-Token': authToken,
+    'X-Plex-Client-Identifier': clientIdentifier,
+  }
+}
+
+/**
  * Reads configured Plex auth mode with a safe default.
  */
 export function getPlexAuthMode(): PlexAuthMode {
@@ -66,10 +83,7 @@ export function isEmailAllowlisted(email: string) {
  */
 export async function fetchPlexIdentity(authToken: string): Promise<PlexIdentity> {
   const response = await fetch(PLEX_ACCOUNT_URL, {
-    headers: {
-      Accept: 'application/json',
-      'X-Plex-Token': authToken,
-    },
+    headers: createPlexApiHeaders(authToken),
   })
 
   if (!response.ok) {
@@ -145,10 +159,7 @@ export async function hasPlexSharedServerAccess(authToken: string) {
 
   try {
     const response = await fetch(PLEX_RESOURCES_URL, {
-      headers: {
-        Accept: 'application/json',
-        'X-Plex-Token': authToken,
-      },
+      headers: createPlexApiHeaders(authToken),
     })
 
     if (!response.ok) {
@@ -215,6 +226,10 @@ function normalizePlexResources(
       return candidate.filter((item): item is Record<string, unknown> =>
         isRecord(item),
       )
+    }
+
+    if (isRecord(candidate)) {
+      return [candidate]
     }
   }
 
