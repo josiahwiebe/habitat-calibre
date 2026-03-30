@@ -120,6 +120,7 @@ function Home() {
     data.facets.languages.options,
     search.language,
   )
+  const lastSyncedLabel = formatLastSynced(data.lastSyncedAt)
 
   return (
     <main className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -138,18 +139,24 @@ function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 rounded-2xl border border-stone-300 bg-stone-100 p-3 text-sm sm:w-72">
-            <div>
-              <p className="text-xs uppercase tracking-[0.12em] text-stone-500">Books</p>
-              <p className="text-2xl font-semibold text-stone-900">
-                {data.stats.totalBooks}
-              </p>
+          <div className="rounded-2xl border border-stone-300 bg-stone-100 p-3 text-sm sm:w-72">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-xs uppercase tracking-[0.12em] text-stone-500">Books</p>
+                <p className="text-2xl font-semibold text-stone-900">
+                  {data.stats.totalBooks}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.12em] text-stone-500">Matches</p>
+                <p className="text-2xl font-semibold text-stone-900">
+                  {data.stats.matchedBooks}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.12em] text-stone-500">Matches</p>
-              <p className="text-2xl font-semibold text-stone-900">
-                {data.stats.matchedBooks}
-              </p>
+            <div className="mt-2 border-t border-stone-300 pt-2">
+              <p className="text-xs uppercase tracking-[0.12em] text-stone-500">Last Synced</p>
+              <p className="text-sm font-semibold text-stone-900">{lastSyncedLabel}</p>
             </div>
           </div>
         </div>
@@ -459,4 +466,22 @@ function resolveFacetLabel(
   }
 
   return options.find((option) => option.slug === selected)?.name ?? selected
+}
+
+function formatLastSynced(lastSyncedAt: string | undefined) {
+  if (!lastSyncedAt) {
+    return 'Not synced yet'
+  }
+
+  const date = new Date(lastSyncedAt)
+  if (Number.isNaN(date.getTime())) {
+    return 'Unknown'
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date)
 }

@@ -108,12 +108,14 @@ export interface LibrarySearchResponse {
     matchedBooks: number
   }
   applied: LibrarySearchInput
+  lastSyncedAt?: string
   runtimeError?: string
 }
 
 export interface LibraryHealth {
   ready: boolean
   generatedAt?: string
+  lastSyncedAt?: string
   totalBooks?: number
   metadataMtimeMs?: number
   libraryPath: string

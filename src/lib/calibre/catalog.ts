@@ -25,6 +25,7 @@ import type {
 
 const BOOK_DIRECTORY_ID_PATTERN = /\((\d+)\)\s*$/
 const COVER_CANDIDATE_NAMES = ['cover.jpg', 'cover.jpeg', 'cover.png', 'cover.webp']
+const LAST_SYNC_STAMP_FILE_NAME = '.last-synced-at'
 
 const EXTENSION_MIME_MAP: Record<string, string> = {
   azw: 'application/vnd.amazon.ebook',
@@ -162,6 +163,8 @@ export function createUnavailableSearchResponse(
   input: LibrarySearchInput,
   runtimeError?: string,
 ): LibrarySearchResponse {
+  const { libraryPath } = getAppEnvironment()
+
   return {
     books: [],
     facets: createEmptyFacets(),
@@ -176,6 +179,7 @@ export function createUnavailableSearchResponse(
       matchedBooks: 0,
     },
     applied: input,
+    lastSyncedAt: getLibraryLastSyncedAt(libraryPath),
     runtimeError,
   }
 }
@@ -185,6 +189,7 @@ export function createUnavailableSearchResponse(
  */
 export function searchLibrary(input: LibrarySearchInput): LibrarySearchResponse {
   const manifest = getLibraryManifest()
+  const { libraryPath } = getAppEnvironment()
   const query = normalizeWhitespace(input.q ?? '').toLowerCase()
   const queryTokens = query.length > 0 ? query.split(' ') : []
 
@@ -253,6 +258,7 @@ export function searchLibrary(input: LibrarySearchInput): LibrarySearchResponse 
       ...input,
       page,
     },
+    lastSyncedAt: getLibraryLastSyncedAt(libraryPath),
   }
 }
 
@@ -352,6 +358,7 @@ export function rescanLibrary(): LibraryHealth {
 export function getLibraryHealth(): LibraryHealth {
   const { libraryPath } = getAppEnvironment()
   const metadataDbPath = path.join(libraryPath, 'metadata.db')
+  const lastSyncedAt = getLibraryLastSyncedAt(libraryPath)
 
   try {
     const manifest = getLibraryManifest()
@@ -359,6 +366,7 @@ export function getLibraryHealth(): LibraryHealth {
     return {
       ready: true,
       generatedAt: manifest.generatedAt,
+      lastSyncedAt,
       totalBooks: manifest.books.length,
       metadataMtimeMs: manifest.sourceMtimeMs,
       libraryPath,
@@ -367,10 +375,31 @@ export function getLibraryHealth(): LibraryHealth {
   } catch (error) {
     return {
       ready: false,
+      lastSyncedAt,
       libraryPath,
       metadataDbPath,
       error: error instanceof Error ? error.message : 'Unknown library error',
     }
+  }
+}
+
+function getLibraryLastSyncedAt(libraryPath: string): string | undefined {
+  const stampFilePath = path.join(libraryPath, LAST_SYNC_STAMP_FILE_NAME)
+
+  try {
+    const value = fs.readFileSync(stampFilePath, 'utf8').trim()
+    if (!value) {
+      return undefined
+    }
+
+    const parsedMs = Date.parse(value)
+    if (!Number.isFinite(parsedMs)) {
+      return undefined
+    }
+
+    return new Date(parsedMs).toISOString()
+  } catch {
+    return undefined
   }
 }
 

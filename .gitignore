@@ -18,3 +18,5 @@ node_modules
 /blob-report/
 /playwright/.cache/
 .tanstack
+local-lib/
+logs/
