@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { requireAuthenticatedRoute } from '~/lib/auth/guard'
+import { requireSessionUser } from '~/lib/auth/session'
 import { deliverBookRequest } from '~/lib/requests/delivery'
 
 const REQUEST_WINDOW_MS = 1000 * 60 * 60
@@ -34,6 +35,7 @@ export const Route = createFileRoute('/api/request-book')({
     middleware: [requireAuthenticatedRoute],
     handlers: {
       POST: async ({ request }) => {
+        const sessionUser = await requireSessionUser()
         const payload = await parseRequestPayload(request)
 
         if (!payload.ok) {
@@ -64,6 +66,10 @@ export const Route = createFileRoute('/api/request-book')({
           const delivery = await deliverBookRequest({
             title: payload.data.title,
             author: normalizeOptional(payload.data.author),
+            requester: {
+              name: sessionUser.username,
+              email: sessionUser.email,
+            },
             selectedRelease: payload.data.selectedRelease
               ? {
                   ...payload.data.selectedRelease,

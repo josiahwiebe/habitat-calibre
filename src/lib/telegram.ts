@@ -12,6 +12,10 @@ export interface BookRequestMessage {
   selectedRelease?: RequestReleaseSelection
   notes?: string
   requestedAt: string
+  requester?: {
+    name?: string
+    email: string
+  }
   requesterIp?: string
   userAgent?: string
   sourceUrl?: string
@@ -80,10 +84,17 @@ function getTelegramConfig(): TelegramConfig | null {
 }
 
 function createTelegramText(payload: BookRequestMessage) {
+  const requesterName = payload.requester?.name?.trim()
+  const requesterEmail = payload.requester?.email?.trim()
+  const requesterLabel = requesterEmail
+    ? `${requesterName || requesterEmail} (${requesterEmail})`
+    : undefined
+
   const lines = [
     'Book request from Habitat Calibre',
     `Title: ${payload.title}`,
     payload.author ? `Author: ${payload.author}` : undefined,
+    requesterLabel ? `Requested by: ${requesterLabel}` : undefined,
     payload.selectedRelease
       ? `Selected release: ${payload.selectedRelease.source}:${payload.selectedRelease.sourceId}`
       : undefined,

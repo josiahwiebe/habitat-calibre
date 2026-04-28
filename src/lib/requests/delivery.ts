@@ -149,6 +149,7 @@ async function sendShelfmarkOnly(
     author: payload.author,
     selectedRelease: payload.selectedRelease,
     notes: payload.notes,
+    requester: payload.requester,
     requesterIp: payload.requesterIp,
     sourceUrl: payload.sourceUrl,
   })

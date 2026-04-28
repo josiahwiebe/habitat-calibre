@@ -71,6 +71,10 @@ export interface ShelfmarkRequestInput {
   author?: string
   selectedRelease?: RequestReleaseSelection
   notes?: string
+  requester?: {
+    name?: string
+    email: string
+  }
   requesterIp?: string
   sourceUrl?: string
 }
@@ -587,6 +591,12 @@ function buildManualProviderId(title: string, author: string) {
 function buildShelfmarkNote(input: ShelfmarkRequestInput) {
   const lines: Array<string> = []
   const note = input.notes?.trim()
+  const requesterName = input.requester?.name?.trim()
+  const requesterEmail = input.requester?.email?.trim()
+
+  if (requesterEmail) {
+    lines.push(`Requested by: ${requesterName || requesterEmail} (${requesterEmail})`)
+  }
 
   if (note) {
     lines.push(note)
