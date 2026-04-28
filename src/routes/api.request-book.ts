@@ -4,7 +4,7 @@ import { requireAuthenticatedRoute } from '~/lib/auth/guard'
 import { deliverBookRequest } from '~/lib/requests/delivery'
 
 const REQUEST_WINDOW_MS = 1000 * 60 * 60
-const REQUEST_LIMIT_PER_WINDOW = 6
+const REQUEST_LIMIT_PER_WINDOW = 60
 
 const requestQuotaByIp = new Map<string, { count: number; resetAt: number }>()
 
